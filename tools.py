@@ -74,22 +74,10 @@ async def execute_tool(
             return f"File not found: {path}", True
 
     if name == "Write":
-        # ── Exercise ──────────────────────────────────────────────────────────
-        # Implement the Write tool. The model passes:
-        #   tool_input["file_path"]  — where to write (relative to `base`)
-        #   tool_input["content"]    — the full text to write
-        #
-        # Your implementation should:
-        #   1. Build the full path:   path = base / tool_input["file_path"]
-        #   2. Create parent dirs:    path.parent.mkdir(parents=True, exist_ok=True)
-        #   3. Write the content:     path.write_text(tool_input["content"], encoding="utf-8")
-        #   4. Return a success message and False (not an error):
-        #              return f"Written ... chars to {path}", False
-        #
-        # When you're done, run:  python tools.py
-        # Checkout step-3 to see the answer and the next concept.
-        # ─────────────────────────────────────────────────────────────────────
-        return "Write not yet implemented — complete the exercise above.", True
+        path = base / tool_input["file_path"]
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(tool_input["content"], encoding="utf-8")
+        return f"Written {len(tool_input['content'])} chars to {path}", False
 
     return f"Unknown tool: {name}", True
 
