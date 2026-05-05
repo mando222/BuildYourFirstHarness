@@ -1,14 +1,11 @@
 """
-Step 1 — The Minimal Agentic Loop
+Step 2 — The Agentic Loop With Tools
 
-This is the heart of every agent harness. The loop is simple:
-  1. Send a message to the model
-  2. Get a response
-  3. If the model wants to use a tool, execute it and loop back
-  4. If not, return the text
+In step 1 the loop always exited immediately (no tools).
+Now the model can request tools, we execute them, and the loop continues
+until stop_reason is no longer "tool_use".
 
-In this step we have NO tools yet — the model can only think and respond.
-Tools are added in Step 2.
+The key change is the tool execution block inside the while loop.
 """
 
 import asyncio
@@ -16,6 +13,7 @@ import asyncio
 import anthropic
 
 from config import settings
+from tools import build_tool_list, execute_tool
 
 
 async def run_agent(
@@ -25,6 +23,7 @@ async def run_agent(
     cwd: str = ".",
 ) -> str:
     client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    tool_defs = build_tool_list(tools or [])
     messages: list[dict] = [{"role": "user", "content": task_prompt}]
     collected_text: list[str] = []
 
@@ -34,44 +33,59 @@ async def run_agent(
             max_tokens=settings.max_tokens,
             system=system_prompt,
             messages=messages,
-            tools=anthropic.NOT_GIVEN,  # no tools yet — added in step-2
+            # Pass tools only when the agent has some — empty list behaves
+            # differently from NOT_GIVEN on some models.
+            tools=tool_defs if tool_defs else anthropic.NOT_GIVEN,
         )
 
         for block in response.content:
             if block.type == "text":
                 collected_text.append(block.text)
 
-        # The loop has exactly ONE exit condition: the model stopped requesting tools.
+        # THE only exit condition — model is done with tools.
         if response.stop_reason != "tool_use":
             break
+
+        # ── Execute every tool the model requested this turn ─────────────
+        tool_results: list[dict] = []
+        for block in response.content:
+            if block.type != "tool_use":
+                continue
+            output, is_error = await execute_tool(block.name, dict(block.input), cwd)
+            print(f"    [{block.name}] {str(block.input)[:70]}")
+            tool_results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": block.id,
+                    "content": output,
+                    "is_error": is_error,
+                }
+            )
+
+        # Append the model's turn (with tool_use blocks) then the results.
+        # The model sees these on the next iteration and decides what to do next.
+        messages.append({"role": "assistant", "content": response.content})
+        messages.append({"role": "user", "content": tool_results})
 
     return "\n".join(collected_text)
 
 
 if __name__ == "__main__":
     async def demo() -> None:
-        # ── Exercise ──────────────────────────────────────────────────────────
-        # Fill in the two strings below, then run:  python client.py
-        #
-        # system_prompt: tells the model who it is and how to behave.
-        #   Try: "You are a helpful assistant. Be concise."
-        #
-        # task_prompt: the actual question or instruction.
-        #   Try: "In one sentence, what is an 'agentic loop' in AI?"
-        #
-        # When you're done, checkout step-2 to see the answer and the next concept.
-        # ─────────────────────────────────────────────────────────────────────
-
-        system_prompt = ""   # ← your system prompt here
-        task_prompt   = ""   # ← your task prompt here
-
-        if not system_prompt or not task_prompt:
-            print("Fill in system_prompt and task_prompt in client.py, then re-run.")
-            return
-
-        print("Running a single agent call (no tools)...\n")
-        result = await run_agent(system_prompt=system_prompt, task_prompt=task_prompt)
-        print("Agent response:")
+        print("Running an agent with the Read tool...\n")
+        result = await run_agent(
+            system_prompt=(
+                "You are a helpful assistant. When asked about a file, "
+                "read it first, then answer."
+            ),
+            task_prompt=(
+                "Read samples/sample_code.py and tell me in two sentences "
+                "what the DataPipeline class does."
+            ),
+            tools=["Read"],
+            cwd=".",
+        )
+        print("\nAgent response:")
         print(result)
 
     asyncio.run(demo())
