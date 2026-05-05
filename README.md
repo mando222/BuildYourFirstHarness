@@ -448,21 +448,6 @@ Watch the three phases execute — you'll see phase labels, `[Read]`/`[Write]` t
 - `state.json` — all tasks show `"status": "done"`
 - `report.md` — a summary of what was documented and the reviewer's verdict
 
-### 5c. Test Crash Recovery
-
-Once you've added the two exercise lines, verify they actually work:
-
-```bash
-# Reset to original state
-rm -f state.json report.md && git checkout samples/sample_code.py
-
-python main.py samples/sample_code.py  # start the harness
-# Press Ctrl-C partway through Phase 2
-python main.py samples/sample_code.py  # re-run — already-done tasks are skipped
-```
-
-On the second run you'll see `Skipping <name> (already done)` for completed tasks, then it picks up where it left off. That's the crash recovery working. Without those two lines, it would document everything from scratch again.
-
 ---
 
 ## What You Built
@@ -489,12 +474,6 @@ Once the harness is running, natural next steps:
 - **Parallel execution** — swap the sequential `for` loop in `_phase_document()` for `asyncio.gather()` and document multiple items at once
 - **AAAK Compression** — after each agent writes its output, a second LLM call summarizes it to ~1/30 the size before it's stored in `state.json`. This lets harnesses run indefinitely without growing the context window
 - **See it at scale** — [`githubFixer`](https://github.com/mando222/githubFixer) applies these exact patterns to autonomously solve GitHub issues end-to-end, with rate limiting, semaphore concurrency, and context compaction
-
----
-
-## Model & Cost
-
-The harness uses `claude-sonnet-4-5-20250929` by default. A full run on the sample file typically costs **under $0.10**. You can swap to a cheaper model anytime by setting `MODEL=` in your `.env`.
 
 ---
 
