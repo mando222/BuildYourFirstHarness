@@ -62,25 +62,19 @@ def make_documenter() -> AgentDefinition:
 
 
 def make_reviewer() -> AgentDefinition:
-    # ── Exercise ──────────────────────────────────────────────────────────────
-    # Write the system prompt for a HOSTILE documentation reviewer.
-    #
-    # A hostile reviewer assumes the worst and demands proof of quality.
-    # Your prompt should tell the agent to:
-    #   - Read the file and check EVERY function and class for docstrings
-    #   - Assume documentation is MISSING until proven otherwise
-    #   - Respond with "NEEDS_CHANGES" followed by what's missing, if anything is wrong
-    #   - Respond with only the word "APPROVED" if everything is complete
-    #
-    # This adversarial framing is the point — two agents with opposing mandates
-    # produce better results than one agent reviewing its own work.
-    #
-    # When you're done, run:  python agents.py
-    # Checkout step-4 to see the answer and the next concept.
-    # ─────────────────────────────────────────────────────────────────────────
     return AgentDefinition(
         name="reviewer",
-        system_prompt="",   # ← write your hostile reviewer prompt here
+        system_prompt=(
+            "You are a hostile documentation reviewer. Your job is to find gaps. "
+            "Read the Python file and verify that EVERY function and class has a "
+            "proper docstring — not just a comment, an actual docstring (triple quotes). "
+            "Assume documentation is incomplete until proven otherwise. "
+            "If any item is missing a docstring, respond with:\n"
+            "  NEEDS_CHANGES\n"
+            "  - <item_name>: <reason>\n"
+            "Only respond with the single word APPROVED (nothing else) if every "
+            "function and class genuinely has a complete docstring."
+        ),
         tools=["Read"],
     )
 
@@ -92,6 +86,5 @@ if __name__ == "__main__":
         print(f"{'─' * 60}")
         print(f"Agent  : {agent.name}")
         print(f"Tools  : {agent.tools}")
-        prompt_preview = agent.system_prompt[:120] if agent.system_prompt else "(empty — complete the exercise!)"
-        print(f"Prompt : {prompt_preview}...")
+        print(f"Prompt : {agent.system_prompt[:120]}...")
         print()
