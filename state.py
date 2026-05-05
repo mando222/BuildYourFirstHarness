@@ -58,27 +58,14 @@ class StateManager:
         return HarnessState(tasks=tasks, **data)
 
     def save(self, state: HarnessState) -> None:
-        # ── Exercise ──────────────────────────────────────────────────────────
-        # Implement save(). It should serialize `state` to JSON and write it
-        # to self._path so the harness can resume after a crash.
-        #
-        # Hints:
-        #   - Convert the dataclass to a dict:  asdict(state)
-        #   - Serialize to a readable string:   json.dumps(..., indent=2)
-        #   - Write to disk:                    self._path.write_text(..., encoding="utf-8")
-        #
-        # When you're done, run:  python state.py
-        # You should see state_demo.json appear with a proper JSON structure.
-        # Checkout step-5 to see the answer and the final pipeline.
-        # ─────────────────────────────────────────────────────────────────────
-        pass
+        self._path.write_text(
+            json.dumps(asdict(state), indent=2), encoding="utf-8"
+        )
 
 
 # ── Standalone demo ──────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    import os
-
     sm = StateManager(path="state_demo.json")
 
     state = HarnessState(
@@ -90,19 +77,19 @@ if __name__ == "__main__":
         ],
     )
     sm.save(state)
+    print("Saved state_demo.json")
 
-    if not Path("state_demo.json").exists():
-        print("state_demo.json was NOT created — implement save() above and re-run.")
-    else:
-        print("Saved state_demo.json")
-        loaded = sm.load()
-        print(f"\nLoaded {len(loaded.tasks)} tasks for: {loaded.target_file}")
-        for t in loaded.tasks:
-            print(f"  [{t.status}] {t.item_type} {t.name} (line {t.line})")
+    loaded = sm.load()
+    print(f"\nLoaded {len(loaded.tasks)} tasks for: {loaded.target_file}")
+    for t in loaded.tasks:
+        print(f"  [{t.status}] {t.item_type} {t.name} (line {t.line})")
 
-        loaded.tasks[0].status = Status.DONE
-        sm.save(loaded)
-        print("\nMarked first task DONE and saved.")
-        print("Open state_demo.json to see the JSON structure.\n")
-        os.remove("state_demo.json")
-        print("(Cleaned up state_demo.json)")
+    # Simulate completing one task
+    loaded.tasks[0].status = Status.DONE
+    sm.save(loaded)
+    print("\nMarked first task DONE and saved.")
+    print("Open state_demo.json to see the JSON structure.\n")
+
+    import os
+    os.remove("state_demo.json")
+    print("(Cleaned up state_demo.json)")
