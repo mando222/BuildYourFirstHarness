@@ -439,8 +439,7 @@ Without these two lines the harness works — but if it crashes, it starts over 
 ### 5b. Run It
 
 ```bash
-make run
-# or: python main.py samples/sample_code.py
+python main.py samples/sample_code.py
 ```
 
 Watch the three phases execute — you'll see phase labels, `[Read]`/`[Write]` tool calls per task, and a final `APPROVED` or fix-pass message from the reviewer. When it finishes, inspect:
@@ -454,7 +453,9 @@ Watch the three phases execute — you'll see phase labels, `[Read]`/`[Write]` t
 Once you've added the two exercise lines, verify they actually work:
 
 ```bash
-make clean                               # reset everything to original state
+# Reset to original state
+rm -f state.json report.md && git checkout samples/sample_code.py
+
 python main.py samples/sample_code.py  # start the harness
 # Press Ctrl-C partway through Phase 2
 python main.py samples/sample_code.py  # re-run — already-done tasks are skipped
