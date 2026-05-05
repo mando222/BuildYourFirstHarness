@@ -111,25 +111,24 @@ cp .env.example .env
 Each step is a **git tag**. Check out a tag to get the code at exactly that point, read the new file(s), complete the exercise, then move on.
 
 ```bash
-git checkout step-1   # start here
-git checkout step-2   # adds tools
-git checkout step-3   # adds agent definitions
-git checkout step-4   # adds external state
-git checkout step-5   # the full working harness
+git checkout -f step-1   # start here
+git checkout -f step-2   # adds tools
+git checkout -f step-3   # adds agent definitions
+git checkout -f step-4   # adds external state
+git checkout -f step-5   # the full working harness
 ```
 
 **Moving between steps after editing files:**  
-Each step has an exercise that modifies a file. Git will block the next checkout if you have unsaved changes. Stash your work first, then switch:
+Each step has an exercise that modifies a file. The `-f` flag handles this — it discards local changes and switches cleanly:
 
 ```bash
-git stash             # park your exercise edits
-git checkout step-2   # move to the next step (your answer is revealed here)
+git checkout -f step-2   # move on, local changes discarded
 ```
 
-Want to discard your edits and just see the answer?
+Want to keep your exercise work before moving on? Stash it first:
 
 ```bash
-git checkout -f step-2   # force checkout, local changes discarded
+git stash && git checkout -f step-2
 ```
 
 Fell behind or something broke? Jump straight to any step:
@@ -143,7 +142,7 @@ git checkout -f step-3   # instantly back on track
 ## Step 1 — The Minimal Agentic Loop `(~10 min)`
 
 ```bash
-git checkout step-1
+git checkout -f step-1
 ```
 
 **New files:** `config.py`, `client.py`, `samples/sample_code.py`
@@ -209,7 +208,7 @@ Open `samples/sample_code.py`. It's a clean, working Python module — 4 functio
 ## Step 2 — Giving Agents Hands `(~10 min)`
 
 ```bash
-git checkout step-2
+git checkout -f step-2
 ```
 
 **New files:** `tools.py` &nbsp;|&nbsp; **Updated:** `client.py`
@@ -287,7 +286,7 @@ You'll see `[Read]` log lines as the agent reads the file, then a description of
 ## Step 3 — Agent Definitions & Hostile Agents `(~10 min)`
 
 ```bash
-git checkout step-3
+git checkout -f step-3
 ```
 
 **New files:** `agents.py`
@@ -347,7 +346,7 @@ You'll see each agent's name, tools, and system prompt printed. Notice how diffe
 ## Step 4 — External State `(~10 min)`
 
 ```bash
-git checkout step-4
+git checkout -f step-4
 ```
 
 **New files:** `state.py`
@@ -399,7 +398,7 @@ If it works, you'll see `state_demo.json` created, the tasks listed, and then th
 ## Step 5 — The Full Pipeline `(~10 min)`
 
 ```bash
-git checkout step-5
+git checkout -f step-5
 ```
 
 **New files:** `orchestrator.py`, `main.py`, `Makefile`
