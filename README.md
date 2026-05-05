@@ -108,7 +108,7 @@ cp .env.example .env
 
 ## How the Workshop Works
 
-Each step is a **git tag**. Check out a tag to get the code at exactly that point, read the new file(s), run the demo, then move on.
+Each step is a **git tag**. Check out a tag to get the code at exactly that point, read the new file(s), complete the exercise, then move on.
 
 ```bash
 git checkout step-1   # start here
@@ -118,10 +118,24 @@ git checkout step-4   # adds external state
 git checkout step-5   # the full working harness
 ```
 
-Fell behind or something broke? Jump straight to the right step:
+**Moving between steps after editing files:**  
+Each step has an exercise that modifies a file. Git will block the next checkout if you have unsaved changes. Stash your work first, then switch:
 
 ```bash
-git checkout step-3   # instantly back on track
+git stash             # park your exercise edits
+git checkout step-2   # move to the next step (your answer is revealed here)
+```
+
+Want to discard your edits and just see the answer?
+
+```bash
+git checkout -f step-2   # force checkout, local changes discarded
+```
+
+Fell behind or something broke? Jump straight to any step:
+
+```bash
+git checkout -f step-3   # instantly back on track
 ```
 
 ---

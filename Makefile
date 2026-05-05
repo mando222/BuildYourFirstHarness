@@ -5,4 +5,7 @@ clean:
 	rm -f state.json report.md
 	git checkout samples/sample_code.py
 
-.PHONY: run clean
+save:
+	git stash
+
+.PHONY: run clean save
