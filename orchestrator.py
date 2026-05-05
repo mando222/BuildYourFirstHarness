@@ -60,6 +60,7 @@ class HarnessOrchestrator:
         try:
             items = json.loads(result.strip())
         except json.JSONDecodeError:
+            # Robust fallback: strip any accidental markdown fences
             cleaned = result.strip().lstrip("```json").lstrip("```").rstrip("```").strip()
             items = json.loads(cleaned)
 
@@ -77,22 +78,9 @@ class HarnessOrchestrator:
         state = self.sm.load()
 
         for task in state.tasks:
-            # ── Exercise ──────────────────────────────────────────────────────
-            # Add two things to this loop — they implement crash recovery and
-            # workload isolation:
-            #
-            # 1. SKIP already-done tasks:
-            #       if task.status == Status.DONE:
-            #           print(f"  Skipping {task.name} (already done)")
-            #           continue
-            #
-            # 2. After the agent call below, mark the task done and save:
-            #       task.status = Status.DONE
-            #       self.sm.save(state)
-            #
-            # To verify: run `make run`, press Ctrl-C partway through Phase 2,
-            # then run `make run` again — completed tasks should be skipped.
-            # ─────────────────────────────────────────────────────────────────
+            if task.status == Status.DONE:
+                print(f"  Skipping {task.name} (already done)")
+                continue
 
             print(f"  Documenting: {task.name} ({task.item_type}, line {task.line})")
             agent = make_documenter()
@@ -105,6 +93,10 @@ class HarnessOrchestrator:
                 tools=agent.tools,
                 cwd=self.cwd,
             )
+
+            # Persist immediately — crash recovery for free
+            task.status = Status.DONE
+            self.sm.save(state)
 
     # ── Phase 3: Hostile review ─────────────────────────────────────────────
 
