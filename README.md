@@ -162,11 +162,29 @@ You should see your model name, token limit, and a preview of your API key. If t
 
 Open `client.py`. The `run_agent` function is the core of every agent harness. Right now it has **no tools** — the model can only think and respond. The loop's only exit condition is `stop_reason != "tool_use"`, which always fires immediately when there are no tools.
 
+### ✏️ Exercise
+
+Scroll to the bottom of `client.py`. You'll see the `demo()` function with two empty strings:
+
+```python
+system_prompt = ""   # ← your system prompt here
+task_prompt   = ""   # ← your task prompt here
+```
+
+Fill them in. The system prompt tells the model who it is; the task prompt is your actual question. Try:
+
+```python
+system_prompt = "You are a helpful assistant. Be concise."
+task_prompt   = "In one sentence, what is an 'agentic loop' in AI?"
+```
+
+Then run it:
+
 ```bash
 python client.py
 ```
 
-You should see a one-sentence answer about agentic loops. The full conversation loop ran — it just exited on the first pass because there were no tool calls. That changes in step 2.
+You should see a one-sentence answer come back from the model. That's the full agentic loop running — it exited immediately on the first pass because there are no tool calls yet. When you checkout step-2 your prompts will be filled in so you can compare.
 
 ### 1c. The Sample File (`samples/sample_code.py`)
 
@@ -188,22 +206,40 @@ A tool is two things glued together:
 
 ### 2a. Tool Definitions (`tools.py`)
 
-Open `tools.py`. There are two tools: `Read` (reads a file) and `Write` (writes content to a file). Each is a dict matching the Anthropic API's tool schema format:
+Open `tools.py`. There are two tools: `Read` and `Write`. Each has a JSON schema (so the model knows it exists and how to call it) and a handler in `execute_tool()` (the Python that actually runs). The `TOOLS` dict maps names to schemas:
 
 ```python
-TOOLS = {
-    "Read":  { "name": "Read",  "description": "...", "input_schema": { ... } },
-    "Write": { "name": "Write", "description": "...", "input_schema": { ... } },
+TOOLS: dict[str, dict] = {
+    "Read": {
+        "name": "Read",
+        "description": "Read the full contents of a file.",
+        "input_schema": { "type": "object", "properties": { "file_path": {...} }, ... },
+    },
+    "Write": { ... },
 }
 ```
 
-`execute_tool(name, tool_input, cwd)` is the dispatcher — it receives what the model requested and actually runs it.
+Run the demo to confirm `Read` works — no model involved yet:
 
 ```bash
 python tools.py
 ```
 
-You should see the contents of `samples/sample_code.py` printed — the tool executor read it directly, no model involved.
+You'll see the contents of `samples/sample_code.py` printed directly by the tool executor.
+
+### ✏️ Exercise
+
+Open `tools.py` and find the `if name == "Write":` block in `execute_tool()`. Right now it just returns an error. Implement it:
+
+```python
+if name == "Write":
+    path = base / tool_input["file_path"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(tool_input["content"], encoding="utf-8")
+    return f"Written {len(tool_input['content'])} chars to {path}", False
+```
+
+The model passes `file_path` and `content` — your job is to write the bytes to disk and report back.
 
 ### 2b. The Tool-Use Loop (`client.py`)
 
@@ -224,13 +260,13 @@ messages.append({"role": "user",      "content": tool_results})
 # loop continues → model sees results → decides what to do next
 ```
 
-The model is now in a **genuine conversation with its own tools**. Each tool result is appended as a message, and the model decides what to do next until it returns `stop_reason == "end_turn"`.
+The model is now in a **genuine conversation with its own tools**. Each tool result is appended as a message, and the model decides what to do next until `stop_reason == "end_turn"`.
 
 ```bash
 python client.py
 ```
 
-You'll see `[Read]` log lines as the agent reads the file, then a description of what it found — functions, a class, no docstrings. The loop ran multiple iterations this time.
+You'll see `[Read]` log lines as the agent reads the file, then a description of what it found. The loop ran multiple iterations this time. Checkout step-3 to see your Write implementation and the next concept.
 
 ---
 
@@ -258,17 +294,39 @@ This separation matters: swapping agents is as easy as swapping the definition. 
 
 ### 3b. The Hostile Reviewer
 
-Look at `make_reviewer()`. Its system prompt deliberately assumes the worst:
+Look at `make_reviewer()`. The analyzer and documenter are fully defined — but the reviewer's `system_prompt` is empty. That's your exercise.
 
-> *"You are a hostile documentation reviewer. Assume documentation is missing until proven otherwise. Only respond APPROVED if every function and class genuinely has a complete docstring."*
+### ✏️ Exercise
 
-This is the **hostile agent pattern**: two agents with opposing mandates produce better results than one agent asked to do both jobs. The reviewer's adversarial framing creates real quality pressure — the documenter has to do thorough work or it will be caught.
+Open `agents.py` and write the hostile reviewer's system prompt. It should:
+- Tell the agent to read the file and check **every** function and class
+- Assume documentation is **missing** until proven otherwise
+- Respond `NEEDS_CHANGES` followed by what's missing, if anything is wrong
+- Respond with only the word `APPROVED` if everything is complete
+
+Here's one that works well:
+
+```python
+system_prompt=(
+    "You are a hostile documentation reviewer. Your job is to find gaps. "
+    "Read the Python file and verify that EVERY function and class has a "
+    "proper docstring — not just a comment, an actual docstring (triple quotes). "
+    "Assume documentation is incomplete until proven otherwise. "
+    "If any item is missing a docstring, respond with:\n"
+    "  NEEDS_CHANGES\n"
+    "  - <item_name>: <reason>\n"
+    "Only respond with the single word APPROVED (nothing else) if every "
+    "function and class genuinely has a complete docstring."
+),
+```
+
+The adversarial framing is the point — two agents with opposing mandates produce better results than one agent reviewing its own work.
 
 ```bash
 python agents.py
 ```
 
-You'll see each agent's name, tools, and full system prompt printed. Notice how different the reviewer feels from the documenter — same loop, completely different personality.
+You'll see each agent's name, tools, and system prompt printed. Notice how different the reviewer feels — same loop, completely different personality. Checkout step-4 to see the answer and the next concept.
 
 ---
 
@@ -293,7 +351,7 @@ GOOD: context = [→ do task 16]    # state.json holds everything else
 
 ### 4b. StateManager (`state.py`)
 
-Open `state.py`. `HarnessState` holds the target file and a list of `DocTask` objects. `StateManager` reads and writes it as JSON. The key insight is in the status enum:
+Open `state.py`. `HarnessState` holds the target file and a list of `DocTask` objects. `StateManager.load()` is already implemented — it reads JSON from disk and reconstructs the dataclasses. The key insight is in the status enum:
 
 ```python
 class Status(str, Enum):
@@ -303,11 +361,24 @@ class Status(str, Enum):
 
 When the orchestrator processes tasks, it skips anything already `DONE`. This means if the harness crashes mid-run, restarting it picks up exactly where it left off — crash recovery for free.
 
+### ✏️ Exercise
+
+`StateManager.save()` is stubbed with `pass`. Implement it:
+
+```python
+def save(self, state: HarnessState) -> None:
+    self._path.write_text(
+        json.dumps(asdict(state), indent=2), encoding="utf-8"
+    )
+```
+
+Three parts: `asdict()` converts the dataclass to a plain dict, `json.dumps()` serializes it, `write_text()` persists it. That's the entire external state mechanism.
+
 ```bash
 python state.py
 ```
 
-You'll see a `state.json` file appear in the directory. Open it — it's a plain JSON object with a task list. This is the entire harness memory: readable, debuggable, and crash-safe.
+If it works, you'll see `state_demo.json` created, the tasks listed, and then the file cleaned up. Open the JSON while it exists to see the structure — this is the harness's entire memory. Checkout step-5 to see the answer and the final pipeline.
 
 ---
 
@@ -331,18 +402,26 @@ run()
  └── _write_report()     writes report.md
 ```
 
-The **workload isolation** pattern lives in `_phase_document()`:
+### ✏️ Exercise
+
+Find `_phase_document()`. The loop runs the documenter for each task, but it's missing the two lines that make crash recovery work. Add them:
 
 ```python
 for task in state.tasks:
+    # 1. Skip tasks already completed on a previous run
     if task.status == Status.DONE:
-        continue              # ← skip on restart
-    # ... run documenter ...
+        print(f"  Skipping {task.name} (already done)")
+        continue
+
+    print(f"  Documenting: {task.name} ...")
+    await run_agent(...)   # ← already there
+
+    # 2. Persist immediately after each task
     task.status = Status.DONE
-    self.sm.save(state)       # ← persist immediately
+    self.sm.save(state)
 ```
 
-Each task is saved to disk the moment it completes. The harness can be interrupted at any point and resumed without redoing work.
+Without these two lines the harness works — but if it crashes, it starts over from scratch. With them, it picks up exactly where it left off.
 
 ### 5b. Run It
 
@@ -359,6 +438,8 @@ Watch the three phases execute — you'll see phase labels, `[Read]`/`[Write]` t
 
 ### 5c. Test Crash Recovery
 
+Once you've added the two exercise lines, verify they actually work:
+
 ```bash
 make clean                               # reset everything to original state
 python main.py samples/sample_code.py  # start the harness
@@ -366,7 +447,7 @@ python main.py samples/sample_code.py  # start the harness
 python main.py samples/sample_code.py  # re-run — already-done tasks are skipped
 ```
 
-On the second run you'll see it skip straight past the completed tasks and pick up where it left off. That's the `DONE` check doing its job.
+On the second run you'll see `Skipping <name> (already done)` for completed tasks, then it picks up where it left off. That's the crash recovery working. Without those two lines, it would document everything from scratch again.
 
 ---
 
